@@ -1,6 +1,9 @@
 /// Contains the [`DataWriter`](crate::publication::data_writer::DataWriter) and any related objects.
 pub mod data_writer;
 
+/// Contains the [`DynamicDataWriter`](crate::publication::dynamic_data_writer::DynamicDataWriter) and any related objects.
+pub mod dynamic_data_writer;
+
 /// Contains the [`DataWriterListener`](crate::publication::data_writer_listener::DataWriterListener) trait.
 pub mod data_writer_listener;
 

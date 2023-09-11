@@ -3,7 +3,11 @@ use crate::{
         LivelinessLostStatus, OfferedDeadlineMissedStatus, OfferedIncompatibleQosStatus,
         PublicationMatchedStatus,
     },
-    publication::{data_writer::DataWriter, data_writer_listener::DataWriterListener},
+    publication::{
+        data_writer::DataWriter,
+        data_writer_listener::{DataWriterListener, DynamicDataWriterListener},
+        dynamic_data_writer::DynamicDataWriter,
+    },
     topic_definition::type_support::DdsHasKey,
 };
 
@@ -76,6 +80,52 @@ where
     ) {
         self.on_publication_matched(
             &DataWriter::new(DataWriterNodeKind::Listener(the_writer)),
+            status,
+        )
+    }
+}
+
+impl AnyDataWriterListener for Box<dyn DynamicDataWriterListener + Send + Sync> {
+    fn trigger_on_liveliness_lost(
+        &mut self,
+        the_writer: DataWriterNode,
+        status: LivelinessLostStatus,
+    ) {
+        self.on_liveliness_lost(
+            &DynamicDataWriter::new(DataWriterNodeKind::Listener(the_writer)),
+            status,
+        );
+    }
+
+    fn trigger_on_offered_deadline_missed(
+        &mut self,
+        the_writer: DataWriterNode,
+        status: OfferedDeadlineMissedStatus,
+    ) {
+        self.on_offered_deadline_missed(
+            &DynamicDataWriter::new(DataWriterNodeKind::Listener(the_writer)),
+            status,
+        );
+    }
+
+    fn trigger_on_offered_incompatible_qos(
+        &mut self,
+        the_writer: DataWriterNode,
+        status: OfferedIncompatibleQosStatus,
+    ) {
+        self.on_offered_incompatible_qos(
+            &DynamicDataWriter::new(DataWriterNodeKind::Listener(the_writer)),
+            status,
+        );
+    }
+
+    fn trigger_on_publication_matched(
+        &mut self,
+        the_writer: DataWriterNode,
+        status: PublicationMatchedStatus,
+    ) {
+        self.on_publication_matched(
+            &DynamicDataWriter::new(DataWriterNodeKind::Listener(the_writer)),
             status,
         )
     }

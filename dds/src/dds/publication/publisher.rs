@@ -29,7 +29,11 @@ use crate::{
     topic_definition::type_support::{DdsGetKey, DdsHasKey},
 };
 
-use super::{data_writer_listener::DataWriterListener, publisher_listener::PublisherListener};
+use super::{
+    data_writer_listener::{DataWriterListener, DynamicDataWriterListener},
+    dynamic_data_writer::DynamicDataWriter,
+    publisher_listener::PublisherListener,
+};
 
 /// The [`Publisher`] acts on the behalf of one or several [`DataWriter`] objects that belong to it. When it is informed of a change to the
 /// data associated with one of its [`DataWriter`] objects, it decides when it is appropriate to actually send the data-update message.
@@ -173,6 +177,98 @@ impl Publisher {
         Ok(data_writer)
     }
 
+    pub fn create_dynamic_datawriter(
+        &self,
+        a_topic: &Topic,
+        qos: QosKind<DataWriterQos>,
+        a_listener: Option<Box<dyn DynamicDataWriterListener + Send + Sync>>,
+        mask: &[StatusKind],
+        has_key: bool,
+    ) -> DdsResult<DynamicDataWriter> {
+        let default_unicast_locator_list = self
+            .0
+            .parent_participant()
+            .get_default_unicast_locator_list()?;
+        let default_multicast_locator_list = self
+            .0
+            .parent_participant()
+            .get_default_multicast_locator_list()?;
+        let data_max_size_serialized = self.0.parent_participant().data_max_size_serialized()?;
+
+        let qos = match qos {
+            QosKind::Default => self.0.address().get_default_datawriter_qos()?,
+            QosKind::Specific(q) => {
+                q.is_consistent()?;
+                q
+            }
+        };
+
+        let guid_prefix = self.0.address().guid()?.prefix();
+        let entity_kind = match has_key {
+            true => USER_DEFINED_WRITER_WITH_KEY,
+            false => USER_DEFINED_WRITER_NO_KEY,
+        };
+        let entity_key = [
+            self.0.address().guid()?.entity_id().entity_key()[0],
+            self.0.address().get_unique_writer_id()?,
+            0,
+        ];
+        let entity_id = EntityId::new(entity_key, entity_kind);
+        let guid = Guid::new(guid_prefix, entity_id);
+
+        let topic_kind = match has_key {
+            true => TopicKind::WithKey,
+            false => TopicKind::NoKey,
+        };
+
+        let rtps_writer_impl = RtpsWriter::new(
+            RtpsEndpoint::new(
+                guid,
+                topic_kind,
+                &default_unicast_locator_list,
+                &default_multicast_locator_list,
+            ),
+            true,
+            Duration::new(0, 200_000_000),
+            DURATION_ZERO,
+            DURATION_ZERO,
+            data_max_size_serialized,
+        );
+        let topic_name = a_topic.get_name()?;
+        let listener = a_listener.map(|l| spawn_actor(DdsDataWriterListener::new(Box::new(l))));
+        let status_kind = mask.to_vec();
+        let data_writer = DdsDataWriter::new(
+            rtps_writer_impl,
+            a_topic.get_type_name()?,
+            topic_name,
+            listener,
+            status_kind,
+            qos,
+        );
+        let data_writer_actor = spawn_actor(data_writer);
+        let data_writer_address = data_writer_actor.address().clone();
+        self.0.address().datawriter_add(data_writer_actor)?;
+        let data_writer =
+            DynamicDataWriter::new(DataWriterNodeKind::UserDefined(DataWriterNode::new(
+                data_writer_address,
+                self.0.address().clone(),
+                self.0.parent_participant().clone(),
+            )));
+
+        if self.0.address().is_enabled()?
+            && self
+                .0
+                .address()
+                .get_qos()?
+                .entity_factory
+                .autoenable_created_entities
+        {
+            data_writer.enable()?
+        }
+
+        Ok(data_writer)
+    }
+
     /// This operation deletes a [`DataWriter`] that belongs to the [`Publisher`]. This operation must be called on the
     /// same [`Publisher`] object used to create the [`DataWriter`]. If [`Publisher::delete_datawriter`] is called on a
     /// different [`Publisher`], the operation will have no effect and it will return [`DdsError::PreconditionNotMet`](crate::infrastructure::error::DdsError).
@@ -180,6 +276,70 @@ impl Publisher {
     /// [`WriterDataLifecycleQosPolicy`](crate::infrastructure::qos_policy::WriterDataLifecycleQosPolicy), the deletion of the
     /// [`DataWriter`].
     pub fn delete_datawriter<Foo>(&self, a_datawriter: &DataWriter<Foo>) -> DdsResult<()> {
+        match a_datawriter.node() {
+            DataWriterNodeKind::Listener(_) => Err(DdsError::IllegalOperation),
+            DataWriterNodeKind::UserDefined(dw) => {
+                let writer_handle = dw.address().get_instance_handle()?;
+                if self.0.address().guid()? != dw.parent_publisher().guid()? {
+                    return Err(DdsError::PreconditionNotMet(
+                        "Data writer can only be deleted from its parent publisher".to_string(),
+                    ));
+                }
+
+                let writer_is_enabled = dw.address().is_enabled()?;
+                self.0.address().datawriter_delete(writer_handle)?;
+
+                // The writer creation is announced only on enabled so its deletion must be announced only if it is enabled
+                if writer_is_enabled {
+                    let instance_serialized_key =
+                        cdr::serialize::<_, _, cdr::CdrLe>(&writer_handle, cdr::Infinite)
+                            .map_err(|e| DdsError::PreconditionNotMet(e.to_string()))
+                            .expect("Failed to serialize data");
+
+                    let timestamp = dw.parent_participant().get_current_time()?;
+
+                    if let Some(sedp_writer_announcer) = dw
+                        .parent_participant()
+                        .get_builtin_publisher()?
+                        .data_writer_list()?
+                        .iter()
+                        .find(|x| x.get_type_name().unwrap() == "DiscoveredWriterData")
+                    {
+                        sedp_writer_announcer.dispose_w_timestamp(
+                            instance_serialized_key,
+                            writer_handle,
+                            timestamp,
+                        )??;
+
+                        sedp_writer_announcer.send_message(
+                            RtpsMessageHeader::new(
+                                dw.parent_participant().get_protocol_version()?,
+                                dw.parent_participant().get_vendor_id()?,
+                                dw.parent_participant().get_guid()?.prefix(),
+                            ),
+                            dw.parent_participant().get_udp_transport_write()?,
+                            dw.parent_participant().get_current_time()?,
+                        )?;
+                    }
+                    // let timestamp = domain_participant.get_current_time();
+
+                    // domain_participant
+                    //     .get_builtin_publisher_mut()
+                    //     .stateful_data_writer_list()
+                    //     .iter()
+                    //     .find(|x| x.get_type_name().unwrap() == DiscoveredWriterData)
+                    //     .unwrap()
+                    //     .dispose_w_timestamp(instance_serialized_key, writer_handle, timestamp)
+                    //     .expect("Should not fail to write built-in message");
+                }
+
+                Ok(())
+            }
+        }
+
+        // Ok(())
+    }
+    pub fn delete_dynamic_datawriter(&self, a_datawriter: &DynamicDataWriter) -> DdsResult<()> {
         match a_datawriter.node() {
             DataWriterNodeKind::Listener(_) => Err(DdsError::IllegalOperation),
             DataWriterNodeKind::UserDefined(dw) => {

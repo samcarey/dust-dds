@@ -32,7 +32,7 @@ use crate::{
     },
 };
 
-use super::data_writer_listener::DynamicDataWriterListener;
+use super::{data_writer::DataWriter, data_writer_listener::DynamicDataWriterListener};
 
 /// The [`DataWriter`] allows the application to set the value of the
 /// data to be published under a given [`Topic`].
@@ -46,6 +46,12 @@ pub trait DynamicDataWriterFoo1:
 impl<T> DynamicDataWriterFoo1 for T where
     T: DdsGetKey + DdsHasKey + DdsRepresentation + serde::Serialize
 {
+}
+
+impl<T> From<DynamicDataWriter> for DataWriter<T> {
+    fn from(value: DynamicDataWriter) -> Self {
+        DataWriter::new(value.0)
+    }
 }
 
 impl DynamicDataWriter {

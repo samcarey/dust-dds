@@ -133,7 +133,9 @@ impl From<Duration> for std::time::Duration {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Copy, PartialOrd, Eq, Ord)]
+#[derive(
+    Clone, PartialEq, Debug, Copy, PartialOrd, Eq, Ord, serde::Deserialize, serde::Serialize,
+)]
 pub struct Time {
     sec: i32,
     nanosec: u32,

@@ -35,6 +35,14 @@ pub enum DdsError {
     IllegalOperation,
 }
 
+impl std::fmt::Display for DdsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for DdsError {}
+
 /// Return code representing the different errors
 pub type ReturnCode = i32;
 

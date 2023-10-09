@@ -1,6 +1,9 @@
-use crate::infrastructure::{
-    error::{DdsError, DdsResult},
-    time::Duration,
+use crate::{
+    builtin_topics::TopicBuiltinTopicData,
+    infrastructure::{
+        error::{DdsError, DdsResult},
+        time::Duration,
+    },
 };
 
 use super::{
@@ -318,6 +321,25 @@ impl TopicQos {
             Err(DdsError::ImmutablePolicy)
         } else {
             Ok(())
+        }
+    }
+}
+
+impl From<TopicBuiltinTopicData> for TopicQos {
+    fn from(value: TopicBuiltinTopicData) -> Self {
+        Self {
+            topic_data: value.topic_data().to_owned(),
+            durability: value.durability().to_owned(),
+            deadline: value.deadline().to_owned(),
+            latency_budget: value.latency_budget().to_owned(),
+            liveliness: value.liveliness().to_owned(),
+            reliability: value.reliability().to_owned(),
+            destination_order: value.destination_order().to_owned(),
+            history: value.history().to_owned(),
+            resource_limits: value.resource_limits().to_owned(),
+            transport_priority: value.transport_priority().to_owned(),
+            lifespan: value.lifespan().to_owned(),
+            ownership: value.ownership().to_owned(),
         }
     }
 }

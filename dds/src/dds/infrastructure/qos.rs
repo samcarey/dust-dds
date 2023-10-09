@@ -243,7 +243,7 @@ impl DataReaderQos {
 }
 
 /// QoS policies applicable to the [`Topic`](crate::topic_definition::topic::Topic)
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TopicQos {
     pub topic_data: TopicDataQosPolicy,
     pub durability: DurabilityQosPolicy,

@@ -15,7 +15,7 @@ use dust_dds::{
             UserDataQosPolicy,
         },
         status::{StatusKind, NO_STATUS},
-        time::{Duration, DurationKind},
+        time::Duration,
         wait_set::{Condition, WaitSet},
     },
     subscription::sample_info::{ANY_INSTANCE_STATE, ANY_SAMPLE_STATE, ANY_VIEW_STATE},
@@ -683,7 +683,7 @@ fn ignore_publication() {
     let writer_qos = DataWriterQos {
         reliability: ReliabilityQosPolicy {
             kind: ReliabilityQosPolicyKind::Reliable,
-            max_blocking_time: DurationKind::Finite(Duration::new(1, 0)),
+            max_blocking_time: Duration::new(1, 0),
         },
         ..Default::default()
     };
@@ -697,7 +697,7 @@ fn ignore_publication() {
     let reader_qos = DataReaderQos {
         reliability: ReliabilityQosPolicy {
             kind: ReliabilityQosPolicyKind::Reliable,
-            max_blocking_time: DurationKind::Finite(Duration::new(1, 0)),
+            max_blocking_time: Duration::new(1, 0),
         },
         ..Default::default()
     };
@@ -744,7 +744,7 @@ fn ignore_subscription() {
     let reader_qos = DataReaderQos {
         reliability: ReliabilityQosPolicy {
             kind: ReliabilityQosPolicyKind::Reliable,
-            max_blocking_time: DurationKind::Finite(Duration::new(1, 0)),
+            max_blocking_time: Duration::new(1, 0),
         },
         ..Default::default()
     };
@@ -759,7 +759,7 @@ fn ignore_subscription() {
     let writer_qos = DataWriterQos {
         reliability: ReliabilityQosPolicy {
             kind: ReliabilityQosPolicyKind::Reliable,
-            max_blocking_time: DurationKind::Finite(Duration::new(1, 0)),
+            max_blocking_time: Duration::new(1, 0),
         },
         ..Default::default()
     };

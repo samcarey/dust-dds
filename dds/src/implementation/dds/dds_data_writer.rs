@@ -62,7 +62,6 @@ use crate::{
             LivelinessLostStatus, OfferedDeadlineMissedStatus, OfferedIncompatibleQosStatus,
             PublicationMatchedStatus, QosPolicyCount, StatusKind,
         },
-        time::DurationKind,
     },
     topic_definition::type_support::{dds_serialize_key, DdsSerializedKey},
     {
@@ -812,7 +811,7 @@ impl DdsDataWriter {
     fn remove_stale_changes(&mut self, now: Time) {
         let timespan_duration = self.qos.lifespan.duration;
         self.writer_cache
-            .remove_change(|cc| DurationKind::Finite(now - cc.timestamp()) > timespan_duration);
+            .remove_change(|cc| now - cc.timestamp() > timespan_duration);
     }
 
     fn on_acknack_submessage_received(

@@ -5,7 +5,7 @@ use dust_dds::{
         qos::{DataReaderQos, DataWriterQos, QosKind},
         qos_policy::{ReliabilityQosPolicy, ReliabilityQosPolicyKind},
         status::{StatusKind, NO_STATUS},
-        time::{Duration, DurationKind},
+        time::Duration,
         wait_set::{Condition, WaitSet},
     },
     subscription::sample_info::{ANY_INSTANCE_STATE, ANY_SAMPLE_STATE, ANY_VIEW_STATE},
@@ -45,7 +45,7 @@ async fn dust_dds_should_run_inside_tokio_runtime() {
     let writer_qos = DataWriterQos {
         reliability: ReliabilityQosPolicy {
             kind: ReliabilityQosPolicyKind::BestEffort,
-            max_blocking_time: DurationKind::Finite(Duration::new(1, 0)),
+            max_blocking_time: Duration::new(1, 0),
         },
         ..Default::default()
     };
@@ -59,7 +59,7 @@ async fn dust_dds_should_run_inside_tokio_runtime() {
     let reader_qos = DataReaderQos {
         reliability: ReliabilityQosPolicy {
             kind: ReliabilityQosPolicyKind::BestEffort,
-            max_blocking_time: DurationKind::Finite(Duration::new(1, 0)),
+            max_blocking_time: Duration::new(1, 0),
         },
         ..Default::default()
     };

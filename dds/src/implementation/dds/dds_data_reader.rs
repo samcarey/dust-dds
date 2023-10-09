@@ -57,7 +57,7 @@ use crate::{
             RequestedIncompatibleQosStatus, SampleLostStatus, SampleRejectedStatus,
             SampleRejectedStatusKind, StatusKind, SubscriptionMatchedStatus,
         },
-        time::{DurationKind, Time},
+        time::Time,
     },
     subscription::sample_info::{InstanceStateKind, SampleInfo, SampleStateKind, ViewStateKind},
     topic_definition::type_support::{
@@ -1173,8 +1173,7 @@ impl DdsDataReader {
         if let Some(Some(t)) = closest_timestamp_before_received_sample {
             if let Some(sample_source_time) = change.source_timestamp {
                 let sample_separation = sample_source_time - t;
-                DurationKind::Finite(sample_separation)
-                    >= self.qos.time_based_filter.minimum_separation
+                sample_separation >= self.qos.time_based_filter.minimum_separation
             } else {
                 true
             }
@@ -1905,9 +1904,7 @@ impl DdsDataReader {
         let (missed_deadline_instances, instance_reception_time) = self
             .instance_reception_time
             .iter()
-            .partition(|&(_, received_time)| {
-                DurationKind::Finite(now - *received_time) > self.qos.deadline.period
-            });
+            .partition(|&(_, received_time)| (now - *received_time) > self.qos.deadline.period);
 
         self.instance_reception_time = instance_reception_time;
 
